@@ -13,6 +13,7 @@ import (
 const maxClients = 5
 
 func main() {
+
 	li, err := net.Listen("tcp", ":4000")
 	if err != nil {
 		log.Fatalln(err)
@@ -22,8 +23,8 @@ func main() {
 
 	sema := make(chan struct{}, maxClients)
 	c := make(chan string)
-	b := make(chan string)
-	counter := 0
+	terminate := false
+
 	go func() {
 		for {
 			sema <- struct{}{}
@@ -34,8 +35,8 @@ func main() {
 				// check
 				continue
 			}
-			counter++
-			go handleConn(conn, c, b, &counter)
+
+			go handleConn(conn, c, &terminate)
 		}
 	}()
 
@@ -59,32 +60,20 @@ func main() {
 	}
 }
 
-func handleConn(conn net.Conn, c chan string, b chan string, counter *int) {
-
-	go func() {
-		b <- "ok"
-	}()
+func handleConn(conn net.Conn, c chan string, terminate *bool) {
 
 	scanner := bufio.NewScanner(conn)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		ln := scanner.Text()
 
-		if  _, ok := <-b; !ok || !validateInput(ln) {	
+		if  *terminate || !validateInput(ln) {	
 			conn.Close()
 			return
 		}
 
-		go func() {
-			b <- "ok"
-		}()
-
 		if (ln == "terminate") {
-			for *counter > 0 {
-			 	<-b
-			 	*counter--
-			}
-			close(b)
+			*terminate = true
 			conn.Close()
 			return
 		}

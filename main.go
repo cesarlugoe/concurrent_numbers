@@ -8,6 +8,9 @@ import (
 	"time"
 	"strconv"
 	"github.com/tylertreat/BoomFilters"
+	"bytes"
+	"io"
+	"os"
 )
 
 const maxClients = 5
@@ -20,6 +23,12 @@ func main() {
 	}
 
 	defer li.Close()
+
+	file, err := os.Create("./log.txt")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	sema := make(chan struct{}, maxClients)
 	c := make(chan string)
@@ -42,21 +51,36 @@ func main() {
 
 	var uniqueNumbers []string
 	numberOfDuplicates := 0
+	records := new(bytes.Buffer)
 
-	go report(&uniqueNumbers, &numberOfDuplicates)
+	go recordInputs(c, &numberOfDuplicates, &uniqueNumbers, records)
+	printReport(&uniqueNumbers, &numberOfDuplicates, &terminate)
 
-	sbf := boom.NewDefaultStableBloomFilter(10000, 0.01)
+	piper, pipew := io.Pipe()
+	go func() {
+		defer pipew.Close()
+		io.Copy(pipew, records)
+	}()
 
+	io.Copy(file, piper)
+	piper.Close()
+	
+}
+
+func recordInputs(c chan string, numberOfDuplicates *int, uniqueNumbers *[]string, records *bytes.Buffer) {
+	sbf := boom.NewDefaultStableBloomFilter(10000, 0.01)	
+	
 	for {
 		newValue := <-c
 
 		if sbf.Test([]byte(newValue)) {
-			numberOfDuplicates++
+			*numberOfDuplicates++
 			continue
 		} 
 
 		sbf.Add([]byte(newValue))
-		uniqueNumbers = append(uniqueNumbers, newValue)
+		*uniqueNumbers = append(*uniqueNumbers, newValue)
+		records.WriteString(newValue + "\n")
 	}
 }
 
@@ -64,6 +88,7 @@ func handleConn(conn net.Conn, c chan string, terminate *bool) {
 
 	scanner := bufio.NewScanner(conn)
 	scanner.Split(bufio.ScanLines)
+
 	for scanner.Scan() {
 		ln := scanner.Text()
 
@@ -84,13 +109,13 @@ func handleConn(conn net.Conn, c chan string, terminate *bool) {
 	defer conn.Close()
 }
 
-func report(uniqueNumbers *[]string, numberOfDuplicates *int){
+func printReport(uniqueNumbers *[]string, numberOfDuplicates *int, terminate *bool){
 	intervalCountUnique := 0
 	lastTotal := 0
 	intervalCountDuplicate := 0
 	lastDuplicateTotal := 0
 
-	for {
+	for !*terminate {
 		time.Sleep(10000 * time.Millisecond)
 		quantity := len(*uniqueNumbers)
 		intervalCountUnique = quantity - lastTotal

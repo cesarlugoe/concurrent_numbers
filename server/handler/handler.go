@@ -80,6 +80,7 @@ func (h *Handler) handleConn(conn net.Conn, sema chan struct{}) {
 
 	for scanner.Scan() {
 		ln := scanner.Text()
+
 		if *h.terminate || !validateInput(ln) {
 			<-sema
 			if *h.terminate {
@@ -123,18 +124,23 @@ func (h *Handler) TrackInputs() {
 
 // StartReportLoop prints a report on intervals of incoming numbers to the console
 func (h *Handler) StartReportLoop() {
-	prevUniqueTotal := 0
-	prevDuplicateTotal := 0
+	var uniqueTotal int
+	var uniqueInterval int
+	var prevUniqueTotal int
+
+	var duplicateTotal int
+	var prevDuplicateTotal int
+	var duplicateInterval int
 
 	for !*h.terminate {
 		time.Sleep(reportInvervalMs * time.Millisecond)
 
-		uniqueTotal := h.count.uniqueNumbers
-		uniqueInterval := uniqueTotal - prevUniqueTotal
+		uniqueTotal = h.count.uniqueNumbers
+		uniqueInterval = uniqueTotal - prevUniqueTotal
 		prevUniqueTotal = uniqueTotal
 
-		duplicateTotal := h.count.duplicateNumbers
-		duplicateInterval := duplicateTotal - prevDuplicateTotal
+		duplicateTotal = h.count.duplicateNumbers
+		duplicateInterval = duplicateTotal - prevDuplicateTotal
 		prevDuplicateTotal = duplicateTotal
 
 		log.Printf("Received %v unique numbers, %v duplicates. Unique total: %v \n", uniqueInterval, duplicateInterval, uniqueTotal)

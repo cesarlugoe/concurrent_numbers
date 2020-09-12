@@ -13,7 +13,11 @@ import (
 	boom "github.com/tylertreat/BoomFilters"
 )
 
-const maxClients = 5
+// MaxClients is the maximum number of clients allowed to connect to the server
+const MaxClients = 5
+const maxAllowedInput = 999999999
+const requiredInputLength = 9
+const reportInvervalMs = 10000
 
 // Handler handles
 type Handler struct {
@@ -41,18 +45,19 @@ func New() *Handler {
 }
 
 // StartServer listens to TCP connections
-func (h *Handler) StartServer(address string) net.Listener {
-	li, err := net.Listen("tcp", ":"+address)
+func (h *Handler) StartServer(port string) (net.Listener, error) {
+	li, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalln(err)
+		return nil, err
 	}
 
-	return li
+	return li, nil
 }
 
 // ServeListener handles the incoming connections
 func (h *Handler) ServeListener(li net.Listener) {
-	sema := make(chan struct{}, maxClients)
+	sema := make(chan struct{}, MaxClients)
 
 	for {
 		// stop serving more than max number of clients
@@ -72,13 +77,12 @@ func (h *Handler) handleConn(conn net.Conn, sema chan struct{}) {
 
 	scanner := bufio.NewScanner(conn)
 	scanner.Split(bufio.ScanLines)
-	terminate := h.terminate
 
 	for scanner.Scan() {
 		ln := scanner.Text()
-		if *terminate || !validateInput(ln) {
+		if *h.terminate || !validateInput(ln) {
 			<-sema
-			if *terminate {
+			if *h.terminate {
 				conn.Write([]byte("Process terminated"))
 			}
 			conn.Close()
@@ -86,7 +90,7 @@ func (h *Handler) handleConn(conn net.Conn, sema chan struct{}) {
 		}
 
 		if ln == "terminate" {
-			*terminate = true
+			*h.terminate = true
 			conn.Close()
 			return
 		}
@@ -100,6 +104,7 @@ func (h *Handler) handleConn(conn net.Conn, sema chan struct{}) {
 // TrackInputs handles filtering and counting of numbers
 func (h *Handler) TrackInputs() {
 
+	// Stable Bloom Filter Algorithm can work with an unbounded data source
 	sbf := boom.NewDefaultStableBloomFilter(10000, 0.01)
 
 	for {
@@ -120,10 +125,9 @@ func (h *Handler) TrackInputs() {
 func (h *Handler) StartReportLoop() {
 	prevUniqueTotal := 0
 	prevDuplicateTotal := 0
-	terminate := h.terminate
 
-	for !*terminate {
-		time.Sleep(10000 * time.Millisecond)
+	for !*h.terminate {
+		time.Sleep(reportInvervalMs * time.Millisecond)
 
 		uniqueTotal := h.count.uniqueNumbers
 		uniqueInterval := uniqueTotal - prevUniqueTotal
@@ -157,7 +161,7 @@ func validateInput(b string) bool {
 		return true
 	}
 
-	if err != nil || len(b) != 9 || num <= 0 || num >= 999999999 {
+	if err != nil || len(b) != requiredInputLength || num <= 0 || num >= maxAllowedInput {
 		return false
 	}
 

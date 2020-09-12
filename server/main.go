@@ -7,8 +7,6 @@ import (
 	"github.com/cesarlugoe/concurrent_numbers/handler"
 )
 
-const maxClients = 5
-
 type counter struct {
 	uniqueNumbers    int
 	duplicateNumbers int
@@ -23,7 +21,11 @@ func main() {
 	}
 
 	h := handler.New()
-	li := h.StartServer("4000")
+	li, err := h.StartServer("4000")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	defer li.Close()
 
 	go h.ServeListener(li)

@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 )
 
 const maxAllowedInput = 999999999
@@ -24,11 +25,18 @@ func main() {
 		println("Dial failed:", err.Error())
 		os.Exit(1)
 	}
+
 	a := 0
+	go func() {
+		for {
+			time.Sleep(1000 * time.Millisecond)
+			fmt.Printf("Total packages sent: %v\n", a)
+		}
+	}()
+
 	for {
 		message := createMessage()
 		a++
-		fmt.Println(a)
 		_, err = conn.Write([]byte(message))
 		if err != nil {
 			fmt.Println("Write to server failed:", err.Error())

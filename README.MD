@@ -16,4 +16,5 @@
 - The Maximum amount of connections to be served at a given time are 5, however, additional clients can connect, but will not be served until old clients are disconnected.
 - The termination secuence waits for the last report to be printed to the console, to be able to check the result of the log file vs this last print.
 - the `StartReportLoop` function serves as the main "clock" that keeps the application running, as it is not a go rutine, only when `terminate` is triggered it will exit. I thought about implementing a wait group, or something of the sort, but in the end, this seemed sufficient for the task at hand.
+- The Client prints the number of packages it sents to the server, there are 5 numbers on each pkg sent
 

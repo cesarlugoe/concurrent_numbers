@@ -7,11 +7,6 @@ import (
 	"github.com/cesarlugoe/concurrent_numbers/handler"
 )
 
-type counter struct {
-	uniqueNumbers    int
-	duplicateNumbers int
-}
-
 func main() {
 
 	file, err := os.Create("./numbers.log")

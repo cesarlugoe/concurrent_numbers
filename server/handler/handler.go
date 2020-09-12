@@ -13,13 +13,14 @@ import (
 	boom "github.com/tylertreat/BoomFilters"
 )
 
-// MaxClients is the maximum number of clients allowed to connect to the server
+// MaxClients allowed to connect to the server
 const MaxClients = 5
 const maxAllowedInput = 999999999
 const requiredInputLength = 9
 const reportInvervalMs = 10000
+const terminateSignal = "terminate"
 
-// Handler handles
+// Handler containes the state of the application
 type Handler struct {
 	c           chan string
 	terminate   *bool
@@ -45,14 +46,11 @@ func New() *Handler {
 }
 
 // StartServer listens to TCP connections
-func (h *Handler) StartServer(port string) (net.Listener, error) {
+func (h *Handler) StartServer(port string) net.Listener {
 	li, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		log.Fatalln(err)
-		return nil, err
-	}
+	handleFaltalError(err)
 
-	return li, nil
+	return li
 }
 
 // ServeListener handles the incoming connections
@@ -60,7 +58,7 @@ func (h *Handler) ServeListener(li net.Listener) {
 	sema := make(chan struct{}, MaxClients)
 
 	for {
-		// stop serving more than max number of clients
+		// semaphore to stop serving more than max number of clients
 		sema <- struct{}{}
 
 		conn, err := li.Accept()
@@ -84,22 +82,25 @@ func (h *Handler) handleConn(conn net.Conn, sema chan struct{}) {
 		if *h.terminate || !validateInput(ln) {
 			<-sema
 			if *h.terminate {
-				conn.Write([]byte("Process terminated"))
+				_, err := conn.Write([]byte("Process terminated"))
+				if err != nil {
+					log.Println(err)
+				}
 			}
-			conn.Close()
+			err := conn.Close()
+			handleFaltalError(err)
 			return
 		}
 
-		if ln == "terminate" {
+		if ln == terminateSignal {
 			*h.terminate = true
-			conn.Close()
+			err := conn.Close()
+			handleFaltalError(err)
 			return
 		}
 
 		h.c <- ln
 	}
-
-	defer conn.Close()
 }
 
 // TrackInputs handles filtering and counting of numbers
@@ -109,16 +110,16 @@ func (h *Handler) TrackInputs() {
 	sbf := boom.NewDefaultStableBloomFilter(10000, 0.01)
 
 	for {
-		newValue := <-h.c
+		ln := <-h.c
 
-		if sbf.Test([]byte(newValue)) {
+		if sbf.Test([]byte(ln)) {
 			h.count.duplicateNumbers++
 			continue
 		}
 
-		sbf.Add([]byte(newValue))
+		sbf.Add([]byte(ln))
 		h.count.uniqueNumbers++
-		h.inputBuffer.WriteString(newValue + "\n")
+		h.inputBuffer.WriteString(ln + "\n")
 	}
 }
 
@@ -152,24 +153,35 @@ func (h *Handler) SaveResultToFile(file *os.File) {
 	piper, pipew := io.Pipe()
 	go func() {
 		defer pipew.Close()
-		io.Copy(pipew, h.inputBuffer)
+		_, err := io.Copy(pipew, h.inputBuffer)
+		handleFaltalError(err)
 	}()
 
-	io.Copy(file, piper)
-	piper.Close()
+	_, err := io.Copy(file, piper)
+	handleFaltalError(err)
+
+	err = piper.Close()
+	handleFaltalError(err)
+
 	log.Println("Finished storing Numbers")
 }
 
 func validateInput(b string) bool {
-	num, err := strconv.Atoi(b)
 
-	if b == "terminate" {
+	if b == terminateSignal {
 		return true
 	}
 
+	num, err := strconv.Atoi(b)
 	if err != nil || len(b) != requiredInputLength || num <= 0 || num >= maxAllowedInput {
 		return false
 	}
 
 	return true
+}
+
+func handleFaltalError(err error) {
+	if err != nil {
+		log.Fatalln(err)
+	}
 }

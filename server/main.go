@@ -17,14 +17,10 @@ func main() {
 	file, err := os.Create("./numbers.log")
 	if err != nil {
 		log.Fatalln(err)
-		os.Exit(1)
 	}
 
 	h := handler.New()
-	li, err := h.StartServer("4000")
-	if err != nil {
-		log.Fatalln(err)
-	}
+	li := h.StartServer("4000")
 
 	defer li.Close()
 

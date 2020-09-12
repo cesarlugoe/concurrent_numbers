@@ -18,11 +18,10 @@ func TestNew(t *testing.T) {
 
 func TestStartServer(t *testing.T) {
 	h := New()
-	li, err := h.StartServer("3999")
+	li := h.StartServer("3999")
 	defer li.Close()
 
 	assert.NotNil(t, li)
-	assert.NoError(t, err)
 }
 
 func TestServeListener(t *testing.T) {
@@ -54,7 +53,7 @@ func TestServeListener(t *testing.T) {
 
 	for _, test := range tests {
 		h := New()
-		li, _ := h.StartServer(test.port)
+		li := h.StartServer(test.port)
 
 		go func() {
 			conn, err := net.Dial("tcp", "localhost:"+test.port)
@@ -106,7 +105,7 @@ func TestTrackInputs(t *testing.T) {
 	}
 
 	h := New()
-	li, _ := h.StartServer("4005")
+	li := h.StartServer("4005")
 
 	go h.ServeListener(li)
 	go h.TrackInputs()
@@ -163,15 +162,14 @@ func TestSaveResultToFile(t *testing.T) {
 	}
 
 	h := New()
-	li, _ := h.StartServer("4006")
+	li := h.StartServer("4006")
+
 	file, err := os.Create("./testNumbers.log")
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	for _, test := range tests {
-
-		if err != nil {
-			log.Fatalln(err)
-			os.Exit(1)
-		}
 
 		go func() {
 			conn, err := net.Dial("tcp", "localhost:4006")
@@ -200,9 +198,9 @@ func TestSaveResultToFile(t *testing.T) {
 		assert.Equal(t, test.expectedResult, string(dat))
 	}
 
-	e := os.Remove("./testNumbers.log")
-	if e != nil {
-		log.Fatal(e)
+	err = os.Remove("./testNumbers.log")
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 

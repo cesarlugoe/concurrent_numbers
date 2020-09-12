@@ -5,13 +5,14 @@ import (
     "os"
     "math/rand"
     "strconv"
+    "fmt"
 )
 
 func main() {
     servAddr := "localhost:4000"
     tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
     if err != nil {
-        println("ResolveTCPAddr failed:", err.Error())
+        fmt.Println("ResolveTCPAddr failed:", err.Error())
         os.Exit(1)
     }
 
@@ -24,11 +25,11 @@ func main() {
     for {
         message := createMessage()
         a++
-        println(a)
+        fmt.Println(a)
          _, err = conn.Write([]byte(message))
         if err != nil {
-            println("Write to server failed:", err.Error())
-            os.Exit(1)
+            fmt.Println("Write to server failed:", err.Error())
+            break
         }
     }
    
@@ -37,11 +38,11 @@ func main() {
 
     _, err = conn.Read(reply)
     if err != nil {
-        println("Write to server failed:", err.Error())
+        fmt.Println("Write to server failed:", err.Error())
         os.Exit(1)
     }
 
-    println("reply from server=", string(reply))
+    fmt.Println("reply from server=", string(reply))
 
     conn.Close()
 }

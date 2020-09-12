@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"bufio"
 	"log"
 	"net"
@@ -22,6 +21,12 @@ type counter struct {
 
 func main() {
 
+	file, err := os.Create("./numbers.log")
+	if err != nil {
+		log.Fatalln(err)
+		os.Exit(1)
+	}
+
 	li, err := net.Listen("tcp", ":4000")
 	if err != nil {
 		log.Fatalln(err)
@@ -29,17 +34,10 @@ func main() {
 
 	defer li.Close()
 
-	file, err := os.Create("./numbers.log")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-
 	c := make(chan string)
 	terminate := false
 
-	go serveListeners(li, c, &terminate)
+	go serveListener(li, c, &terminate)
 
 	count := counter{uniqueNumbers: 0, duplicateNumbers: 0}
 	inputBuffer := new(bytes.Buffer)
@@ -49,25 +47,25 @@ func main() {
 	saveToFile(inputBuffer, file)
 }
 
-func serveListeners(li net.Listener, c chan string, terminate *bool) {
+func serveListener(li net.Listener, c chan string, terminate *bool) {
 	sema := make(chan struct{}, maxClients)	
 
 	for {
 		// stop serving more than max number of clients
 		sema <- struct{}{}
-		defer func() { <-sema }()
 
 		conn, err := li.Accept()
 		if err != nil {
 			log.Println(err)
+			<-sema
 			continue
 		}
 
-		go handleConn(conn, c, terminate)
+		go handleConn(conn, c, terminate, sema)
 	}
 }
 
-func handleConn(conn net.Conn, c chan string, terminate *bool) {
+func handleConn(conn net.Conn, c chan string, terminate *bool, sema chan struct{}) {
 
 	scanner := bufio.NewScanner(conn)
 	scanner.Split(bufio.ScanLines)
@@ -76,11 +74,15 @@ func handleConn(conn net.Conn, c chan string, terminate *bool) {
 		ln := scanner.Text()
 
 		if  *terminate || !validateInput(ln) {	
+			<-sema
+			if *terminate {
+				conn.Write([]byte("Process terminated"))
+			}
 			conn.Close()
 			return
 		}
 
-		if (ln == "terminate") {
+		if ln == "terminate" {
 			*terminate = true
 			conn.Close()
 			return
@@ -101,7 +103,7 @@ func saveToFile(inputBuffer *bytes.Buffer, file *os.File) {
 	
 	io.Copy(file, piper)
 	piper.Close()
-	fmt.Println("Finished storing Numbers")
+	log.Println("Finished storing Numbers")
 }
 
 func trackInputs(c chan string, count *counter, inputBuffer *bytes.Buffer) {
@@ -124,21 +126,21 @@ func trackInputs(c chan string, count *counter, inputBuffer *bytes.Buffer) {
 
 
 func startReportLoop(count *counter, terminate *bool){
-	lastUniqueTotal := 0
-	lastDuplicateTotal := 0
+	prevUniqueTotal := 0
+	prevDuplicateTotal := 0
 
 	for !*terminate {
 		time.Sleep(10000 * time.Millisecond)
 
 		uniqueTotal := count.uniqueNumbers
-		uniqueInterval := uniqueTotal - lastUniqueTotal
-		lastUniqueTotal = uniqueTotal
+		uniqueInterval := uniqueTotal - prevUniqueTotal
+		prevUniqueTotal = uniqueTotal
 
 		duplicateTotal := count.duplicateNumbers
-		duplicateInterval := duplicateTotal - lastDuplicateTotal
-		lastDuplicateTotal = duplicateTotal
+		duplicateInterval := duplicateTotal - prevDuplicateTotal
+		prevDuplicateTotal = duplicateTotal
 
-		fmt.Printf("Received %v unique numbers, %v duplicates. Unique total: %v \n", uniqueInterval, duplicateInterval, uniqueTotal)
+		log.Printf("Received %v unique numbers, %v duplicates. Unique total: %v \n", uniqueInterval, duplicateInterval, uniqueTotal)
 	}
 }
 

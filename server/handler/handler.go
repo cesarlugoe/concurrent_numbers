@@ -15,12 +15,13 @@ import (
 
 // MaxClients allowed to connect to the server
 const MaxClients = 5
+
 const maxAllowedInput = 999999999
 const requiredInputLength = 9
 const reportInvervalMs = 10000
 const terminateSignal = "terminate"
 
-// Handler containes the state of the application
+// Handler contains the state of the application
 type Handler struct {
 	c           chan string
 	terminate   *bool
@@ -28,7 +29,6 @@ type Handler struct {
 	inputBuffer *bytes.Buffer
 }
 
-//Counter keepts track of the recieved numbers
 type counter struct {
 	uniqueNumbers    int
 	duplicateNumbers int
@@ -45,7 +45,7 @@ func New() *Handler {
 	}
 }
 
-// StartServer listens to TCP connections
+// StartServer returns a TCP listener
 func (h *Handler) StartServer(port string) net.Listener {
 	li, err := net.Listen("tcp", ":"+port)
 	handleFaltalError(err)
@@ -79,14 +79,18 @@ func (h *Handler) handleConn(conn net.Conn, sema chan struct{}) {
 	for scanner.Scan() {
 		ln := scanner.Text()
 
-		if *h.terminate || !validateInput(ln) {
-			<-sema
-			if *h.terminate {
-				_, err := conn.Write([]byte("Process terminated"))
-				if err != nil {
-					log.Println(err)
-				}
+		if *h.terminate {
+			_, err := conn.Write([]byte("Process terminated"))
+			if err != nil {
+				log.Println(err)
 			}
+			err = conn.Close()
+			handleFaltalError(err)
+			return
+		}
+
+		if !validateInput(ln) {
+			<-sema
 			err := conn.Close()
 			handleFaltalError(err)
 			return

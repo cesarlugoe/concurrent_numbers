@@ -127,7 +127,7 @@ func TestTrackInputs(t *testing.T) {
 
 		defer li.Close()
 
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		assert.Equal(t, tt.expectedUniqueCount, h.count.uniqueNumbers)
 		assert.Equal(t, tt.expectedDuplicateCount, h.count.duplicateNumbers)
 	}

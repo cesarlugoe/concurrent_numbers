@@ -22,7 +22,7 @@ func main() {
 
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
-		println("Dial failed:", err.Error())
+		fmt.Println("Dial failed:", err.Error())
 		os.Exit(1)
 	}
 

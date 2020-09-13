@@ -17,4 +17,4 @@
 - The termination secuence waits for the last report to be printed to the console, to be able to check the result of the log file vs this last print.
 - the `StartReportLoop` function serves as the main "clock" that keeps the application running, as it is not a go rutine, only when `terminate` is triggered it will exit. I thought about implementing a wait group, or something of the sort, but in the end, this seemed sufficient for the task at hand.
 - The Client prints the total number of packages it has sent to the server every second, there are 5 numbers on each pkg sent (better performance than optained with less numbers sent per packages)
-
+- You can run tests inside the handler folder by running `go test`

@@ -7,6 +7,8 @@ import (
 	"github.com/cesarlugoe/concurrent_numbers/handler"
 )
 
+const port = "4000"
+
 func main() {
 
 	file, err := os.Create("./numbers.log")
@@ -15,12 +17,14 @@ func main() {
 	}
 
 	h := handler.New()
-	li := h.StartServer("4000")
+	li := h.StartServer(port)
 
 	defer li.Close()
 
 	go h.ServeListener(li)
 	go h.TrackInputs()
+
+	// when h.terminate = true, report loop breaks and saveResultToFile() is called
 	h.StartReportLoop()
 	h.SaveResultToFile(file)
 }

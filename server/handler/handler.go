@@ -58,7 +58,7 @@ func (h *Handler) ServeListener(li net.Listener) {
 	sema := make(chan struct{}, MaxClients)
 
 	for {
-		// semaphore to stop serving more than max number of clients
+		// semaphore to avoid serving more than max number of clients
 		sema <- struct{}{}
 
 		conn, err := li.Accept()
@@ -72,7 +72,6 @@ func (h *Handler) ServeListener(li net.Listener) {
 }
 
 func (h *Handler) handleConn(conn net.Conn, sema chan struct{}) {
-
 	scanner := bufio.NewScanner(conn)
 	scanner.Split(bufio.ScanLines)
 
@@ -152,9 +151,10 @@ func (h *Handler) StartReportLoop() {
 	}
 }
 
-// SaveResultToFile stores unique numbers on the created file when the terminate switch turns to false
+// SaveResultToFile stores unique numbers on the created file
 func (h *Handler) SaveResultToFile(file *os.File) {
 	piper, pipew := io.Pipe()
+
 	go func() {
 		defer pipew.Close()
 		_, err := io.Copy(pipew, h.inputBuffer)
